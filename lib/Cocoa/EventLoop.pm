@@ -47,22 +47,52 @@ sub Cocoa::EventLoop::io::DESTROY {
 
 __END__
 
+=for stopwords io
+
 =head1 NAME
 
-Cocoa::EventLoop - perl interface 
+Cocoa::EventLoop - perl interface for Cocoa event loop.
 
 =head1 SYNOPSIS
 
-use Cocoa::EventLoop;
-
-my $timer = Cocoa::EventLoop->timer(
-    after => 10,
-    cb    => sub {
-        
-    },
-);
-
-my $io = Cocoa::EventLoop->io
+    use Cocoa::EventLoop;
+    
+    # on-shot timer
+    my $timer = Cocoa::EventLoop->timer(
+        after => 10,
+        cb    => sub {
+            # do something
+        },
+    );
+    
+    # repeatable timer
+    my $timer = Cocoa::EventLoop->timer(
+        after    => 10,
+        interval => 10,
+        cb       => sub {
+            # do something
+        },
+    );
+    
+    # stop or cancel timers
+    undef $timer;
+    
+    
+    # IO Watcher
+    my $io = Cocoa::EventLoop->io(
+        fh   => *STDIN,
+        poll => 'r',
+        cb   => sub {
+            warn 'read: ', <STDIN>;
+        },
+    );
+    
+    
+    # run main loop
+    Cocoa::EventLoop->run;
+    
+    # run main loop for specified period.
+    Cocoa::EventLoop->run_while($secs);
 
 
 =head1 DESCRIPTION
@@ -71,7 +101,15 @@ Stub documentation for this module was created by ExtUtils::ModuleMaker.
 It looks like the author of the extension was negligent enough
 to leave the stub unedited.
 
-Blah blah blah.
+=head1 METHODS
+
+=head2 timer
+
+=head2 io
+
+=head2 run
+
+=head2 run_while
 
 =head1 AUTHOR
 
