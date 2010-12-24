@@ -4,6 +4,7 @@ assertos 'MacOSX';
 
 name 'Cocoa-EventLoop';
 all_from 'lib/Cocoa/EventLoop.pm';
+readme_from 'lib/Cocoa/EventLoop.pm';
 
 test_requires 'Test::More' => '0.88';
 test_requires 'Test::TCP' => '1.11';
