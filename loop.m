@@ -5,7 +5,7 @@
 
 #import <Foundation/Foundation.h>
 
-@interface Timer : NSObject {
+@interface Cocoa__EventLoop__Timer : NSObject {
 @public
     NSTimer* timer;
     SV* cb;
@@ -13,7 +13,7 @@
 -(void)callback;
 @end
 
-@implementation Timer
+@implementation Cocoa__EventLoop__Timer
 
 -(void)callback {
     dSP;
@@ -39,7 +39,7 @@
 
 @end
 
-@interface IOWatcher : NSObject <NSStreamDelegate> {
+@interface Cocoa__EventLoop__IOWatcher : NSObject <NSStreamDelegate> {
 @public
     int fd;
     int mode;
@@ -49,7 +49,7 @@
 }
 @end
 
-@implementation IOWatcher
+@implementation Cocoa__EventLoop__IOWatcher
 
 -(void)stream:(NSStream *)stream handleEvent:(NSStreamEvent)eventCode {
     switch (eventCode) {
@@ -163,7 +163,7 @@ XS(add_timer) {
     double after    = SvNV(sv_after);
     double interval = SvNV(sv_interval);
 
-    Timer* t = [[Timer alloc] init];
+    Cocoa__EventLoop__Timer* t = [[Cocoa__EventLoop__Timer alloc] init];
 
     t->cb = SvREFCNT_inc(sv_cb);
     t->timer = [[NSTimer alloc]
@@ -197,7 +197,7 @@ XS(remove_timer) {
     SV* sv_timer = ST(0);
 
     MAGIC* m = mg_find(SvRV(sv_timer), PERL_MAGIC_ext);
-    Timer* t = (Timer*)m->mg_obj;
+    Cocoa__EventLoop__Timer* t = (Cocoa__EventLoop__Timer*)m->mg_obj;
 
     [t->timer invalidate];
     SvREFCNT_dec(t->cb);
@@ -230,7 +230,7 @@ XS(add_io) {
 
     CFStreamCreatePairWithSocket(kCFAllocatorDefault, fd, mode == 0 ? &read_stream : NULL, mode == 1 ? &write_stream : NULL);
     if ((mode == 0 && read_stream) || (mode == 1 && write_stream)) {
-        IOWatcher* io = [[IOWatcher alloc] init];
+        Cocoa__EventLoop__IOWatcher* io = [[Cocoa__EventLoop__IOWatcher alloc] init];
         io->fd = fd;
         io->mode = mode;
         io->read_stream = [read_stream retain];
@@ -274,7 +274,7 @@ XS(remove_io) {
     SV* sv_obj = ST(0);
     MAGIC* m = mg_find(SvRV(sv_obj), PERL_MAGIC_ext);
     if (m) {
-        IOWatcher* io = (IOWatcher*)m->mg_obj;
+        Cocoa__EventLoop__IOWatcher* io = (Cocoa__EventLoop__IOWatcher*)m->mg_obj;
 
         if (0 == io->mode) {    // read
             [io->read_stream close];

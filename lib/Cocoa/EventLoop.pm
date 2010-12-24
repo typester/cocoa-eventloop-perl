@@ -4,7 +4,9 @@ use XSLoader;
 
 our $VERSION = '0.01';
 
-XSLoader::load __PACKAGE__, $VERSION;
+BEGIN {
+    XSLoader::load __PACKAGE__, $VERSION;
+}
 
 sub timer {
     my ($class, %arg) = @_;
@@ -47,7 +49,7 @@ __END__
 
 =head1 NAME
 
-Cocoa::EventLoop - Module abstract (<= 44 characters) goes here
+Cocoa::EventLoop - perl interface 
 
 =head1 SYNOPSIS
 

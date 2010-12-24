@@ -12,6 +12,8 @@ test_tcp(
     client => sub {
         my ($port) = @_;
 
+        sleep 0.1;
+
         my $sock = IO::Socket::INET->new(
             PeerHost => '127.0.0.1',
             PeerPort => $port,
