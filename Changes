@@ -1,4 +1,5 @@
 Revision history for Perl extension Cocoa::EventLoop
 
-  0.01  Fri Dec 24 10:55:09 2010
-        - original version
+0.01  2010-12-24T16:35:34+09:00
+      - initial release
+
