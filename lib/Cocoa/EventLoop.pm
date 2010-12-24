@@ -47,7 +47,7 @@ sub Cocoa::EventLoop::io::DESTROY {
 
 __END__
 
-=for stopwords io
+=for stopwords io AnyEvent NSRunLoop cb fh
 
 =head1 NAME
 
@@ -78,7 +78,7 @@ Cocoa::EventLoop - perl interface for Cocoa event loop.
     undef $timer;
     
     
-    # IO Watcher
+    # I/O Watcher
     my $io = Cocoa::EventLoop->io(
         fh   => *STDIN,
         poll => 'r',
@@ -97,19 +97,108 @@ Cocoa::EventLoop - perl interface for Cocoa event loop.
 
 =head1 DESCRIPTION
 
-Stub documentation for this module was created by ExtUtils::ModuleMaker.
-It looks like the author of the extension was negligent enough
-to leave the stub unedited.
+This module provides perl interface for Cocoa's event loop, NSRunLoop. And also provides some timers and io watchers within the loop.
 
-=head1 METHODS
+If you want to use or write some modules that depends Cocoa event loop, using this module is easiest way.
+For example, L<Cocoa::Growl> is possible to handle click event when it runs with this module:
 
-=head2 timer
+    use Cocoa::EventLoop;
+    use Cocoa::Growl;
+    
+    my $done = 0;
+    growl_notify(
+        name        => 'Notification Name',
+        title       => 'Hello',
+        description => 'Cocoa World!',
+        on_click    => sub {
+            $done++;
+        },
+        on_timeout => sub {
+            $done++;
+        },
+    );
+    
+    Cocoa::EventLoop->run_while(0.1) while !$done;
 
-=head2 io
+If you write more complicated script, consider using L<AnyEvent::Impl::NSRunLoop> instead of using this module directly.
+L<AnyEvent::Impl::NSRunLoop> is a wrapper for L<Cocoa::EventLoop> and L<AnyEvent>.
+If you use L<AnyEvent::Impl::NSRunLoop>, you can use any AnyEvent based modules in Cocoa's event loop.
 
-=head2 run
+=head1 CLASS METHODS
 
-=head2 run_while
+=head2 Cocoa::EventLoop->timer(%parameters)
+
+    $timer = Cocoa::EventLoop->timer(after => <seconds>, cb => <callback>);
+    
+    $timer = Cocoa::EventLoop->timer(
+        after    => <fractional_seconds>,
+        interval => <fractional_seconds>,
+        cb       => <callback>,
+    );
+
+Create one-shot or repeat timer.
+
+Available parameters are:
+
+=over 4
+
+=item * after => 'Number'
+
+How many seconds (fractional values are supported) the callback should be invoked.
+When this value does not specified, use 0 by default.
+
+=item * interval => 'Number'
+
+Callback will be invoked regularly at this interval (in fractional seconds) after the first invocation.
+If this value does not specified, use 0 by default (== act as non repeat, on-shot timer);
+
+=item * cb => 'CodeRef'
+
+Callbacks that will be invoked when timer is fire. This parameter is required.
+
+=back
+
+=head2 Cocoa::EventLoop->io(%parameters)
+
+    $io = Cocoa::EventLoop->io(
+        fh   => <filehandle_or_fileno>,
+        poll => <"r" or "w">,
+        cb   => <callback>,
+    );
+
+Create I/O watcher. Available parameters are:
+
+=over 4
+
+=item * fh => 'FileHandle' or fileno
+
+Perl file handle (or a naked file descriptor) to watch for events. (Required)
+
+=item * poll => 'r' or 'w'
+
+Type for watching event. 'r' is for readable, 'w' is for writable. (Required)
+
+=item * cb => 'CodeRef'
+
+callback to invoke each time the file handle becomes ready. (Required)
+
+=back
+
+=head2 Cocoa::EventLoop->run
+
+Start Cocoa main loop.
+
+This method exits immediately when no input sources or timers are attached to the loop,
+but Mac OS X can install and remove additional input sources as needed, and those sources could therefore prevent the run loop from exiting.
+
+If you want the run loop to terminate, you shouldn't use this method. Instead, use one of the other run methods and also check other arbitrary conditions of your own, in a loop. A simple example would be:
+
+    my $should_keep_running = 0; # global
+    Cocoa::EventLoop->run_while(0.1) while $should_keep_running;
+
+=head2 Cocoa::EventLoop->run_while($secs)
+
+Run Cocoa main loop only while specified seconds.
 
 =head1 AUTHOR
 
