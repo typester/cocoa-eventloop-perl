@@ -3,6 +3,9 @@
 #include "XSUB.h"
 #include "ppport.h"
 
+// undefine Move macro, this is conflict to Mac OS X QuickDraw API.
+#undef Move
+
 #import <Foundation/Foundation.h>
 
 @interface Cocoa__EventLoop__Timer : NSObject {
