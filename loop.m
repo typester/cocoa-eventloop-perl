@@ -42,6 +42,8 @@
 
 @end
 
+@protocol NSStreamDelegate;
+
 @interface Cocoa__EventLoop__IOWatcher : NSObject <NSStreamDelegate> {
 @public
     int fd;
