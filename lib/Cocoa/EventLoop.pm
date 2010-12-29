@@ -2,7 +2,7 @@ package Cocoa::EventLoop;
 use strict;
 use XSLoader;
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 BEGIN {
     XSLoader::load __PACKAGE__, $VERSION;

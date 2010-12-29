@@ -12,8 +12,6 @@ test_tcp(
     client => sub {
         my ($port) = @_;
 
-        sleep 0.1;
-
         my $sock = IO::Socket::INET->new(
             PeerHost => '127.0.0.1',
             PeerPort => $port,
@@ -58,14 +56,14 @@ test_tcp(
             Type      => SOCK_STREAM,
             Blocking  => 0,
             ReuseAddr => 1,
-            Listen    => 10,
+            Listen    => 5,
         ) or die $!;
 
         my $server = Cocoa::EventLoop->io(
             fh   => fileno($sock),
             poll => 'r',
             cb   => sub {
-                my $csock = $sock->accept or die $!;
+                my $csock = $sock->accept or return;
                 IO::Handle::blocking($csock, 0);
                 setsockopt($csock, IPPROTO_TCP, TCP_NODELAY, pack('l', 1)) or die;
                 
