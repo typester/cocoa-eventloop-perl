@@ -60,31 +60,46 @@
 @implementation Cocoa__EventLoop__IOWatcher
 
 -(void)setup_watcher {
-    CFStreamCreatePairWithSocket(kCFAllocatorDefault, fd, &read_stream, &write_stream);
+    read_stream = nil;
+    write_stream = nil;
 
-    if (NULL != rcb) [read_stream setDelegate:self];
-    [read_stream scheduleInRunLoop:[NSRunLoop currentRunLoop]
-                           forMode:NSDefaultRunLoopMode];
-    [[read_stream retain] open];
+    CFStreamCreatePairWithSocket(
+        kCFAllocatorDefault, fd,
+        NULL != rcb ? &read_stream : NULL,
+        NULL != wcb ? &write_stream : NULL
+    );
 
-    if (NULL != wcb) [write_stream setDelegate:self];
-    [write_stream scheduleInRunLoop:[NSRunLoop currentRunLoop]
-                            forMode:NSDefaultRunLoopMode];
-    [[write_stream retain] open];
+    if (NULL != rcb) {
+        [read_stream setDelegate:self];
+        [read_stream scheduleInRunLoop:[NSRunLoop currentRunLoop]
+                               forMode:NSDefaultRunLoopMode];
+        [[read_stream retain] open];
+    }
+
+    if (NULL != wcb) {
+        [write_stream setDelegate:self];
+        [write_stream scheduleInRunLoop:[NSRunLoop currentRunLoop]
+                                forMode:NSDefaultRunLoopMode];
+        [[write_stream retain] open];
+    }
 }
 
 -(void)reset_watcher {
-    [read_stream close];
-    [read_stream removeFromRunLoop:[NSRunLoop currentRunLoop]
-                                     forMode:NSDefaultRunLoopMode];
-    [read_stream release];
-    read_stream = nil;
+    if (nil != read_stream) {
+        [read_stream close];
+        [read_stream removeFromRunLoop:[NSRunLoop currentRunLoop]
+                               forMode:NSDefaultRunLoopMode];
+        [read_stream release];
+        read_stream = nil;
+    }
 
-    [write_stream close];
-    [write_stream removeFromRunLoop:[NSRunLoop currentRunLoop]
-                                     forMode:NSDefaultRunLoopMode];
-    [write_stream release];
-    write_stream = nil;
+    if (nil != write_stream) {
+        [write_stream close];
+        [write_stream removeFromRunLoop:[NSRunLoop currentRunLoop]
+                                forMode:NSDefaultRunLoopMode];
+        [write_stream release];
+        write_stream = nil;
+    }
 
     [self setup_watcher];
 };
