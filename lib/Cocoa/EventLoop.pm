@@ -25,6 +25,7 @@ sub Cocoa::EventLoop::timer::DESTROY {
     __remove_timer($_[0]);
 }
 
+my %IO = ();
 sub io {
     my ($class, %arg) = @_;
 
@@ -32,15 +33,27 @@ sub io {
     defined $fd or $fd = $arg{fh};
 
     my $mode = $arg{poll} eq 'r' ? 0 : 1;
-    my $io = bless {}, 'Cocoa::EventLoop::io';
+    my $io   = $IO{$fd} ? $IO{$fd}[2] : bless({});
 
     __add_io($io, $fd, $mode, $arg{cb});
 
-    $io;
+    if ($IO{$fd}) {
+        $IO{$fd}[$mode]++;
+    }
+    else {
+        $IO{$fd} = [$mode == 0, $mode == 1, $io];
+    }
+
+    bless [$mode, $io, $fd], 'Cocoa::EventLoop::io';
 }
 
 sub Cocoa::EventLoop::io::DESTROY {
-    __remove_io($_[0]);
+    my ($mode, $io, $fd) = @{ $_[0] };
+
+    if (--$IO{$fd}[$mode] == 0) {
+        my $fd = __remove_io($io, $mode);
+        delete $IO{$fd} if $fd;
+    }
 }
 
 1;

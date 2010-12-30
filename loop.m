@@ -50,23 +50,30 @@
     int mode;
     NSInputStream* read_stream;
     NSOutputStream* write_stream;
-    SV* cb;
+    SV* rcb;
+    SV* wcb;
 }
+-(void)setup_watcher;
+-(void)reset_watcher;
 @end
 
 @implementation Cocoa__EventLoop__IOWatcher
 
--(void)stream:(NSStream *)stream handleEvent:(NSStreamEvent)eventCode {
-    switch (eventCode) {
-        case NSStreamEventHasSpaceAvailable:
-        case NSStreamEventHasBytesAvailable:
-            break;
-        default:
-            //NSLog(@"ignore event: %d", eventCode);
-            return;
-    }
+-(void)setup_watcher {
+    CFStreamCreatePairWithSocket(kCFAllocatorDefault, fd, &read_stream, &write_stream);
 
-    // clear streams
+    if (NULL != rcb) [read_stream setDelegate:self];
+    [read_stream scheduleInRunLoop:[NSRunLoop currentRunLoop]
+                           forMode:NSDefaultRunLoopMode];
+    [[read_stream retain] open];
+
+    if (NULL != wcb) [write_stream setDelegate:self];
+    [write_stream scheduleInRunLoop:[NSRunLoop currentRunLoop]
+                            forMode:NSDefaultRunLoopMode];
+    [[write_stream retain] open];
+}
+
+-(void)reset_watcher {
     [read_stream close];
     [read_stream removeFromRunLoop:[NSRunLoop currentRunLoop]
                                      forMode:NSDefaultRunLoopMode];
@@ -79,25 +86,26 @@
     [write_stream release];
     write_stream = nil;
 
-    // recreate watcher
-    CFStreamCreatePairWithSocket(kCFAllocatorDefault, fd, mode == 0 ? &read_stream : NULL, mode == 1 ? &write_stream : NULL);
-    if ((mode == 0 && read_stream) || (mode == 1 && write_stream)) {
-        read_stream = [read_stream retain];
-        write_stream = [write_stream retain];
+    [self setup_watcher];
+};
 
-        if (0 == mode) {
-            [read_stream setDelegate:self];
-            [read_stream scheduleInRunLoop:[NSRunLoop currentRunLoop]
-                                   forMode:NSDefaultRunLoopMode];
-            [read_stream open];
-        }
-        else {
-            [write_stream setDelegate:self];
-            [write_stream scheduleInRunLoop:[NSRunLoop currentRunLoop]
-                                    forMode:NSDefaultRunLoopMode];
-            [write_stream open];
-        }
+-(void)stream:(NSStream *)stream handleEvent:(NSStreamEvent)eventCode {
+    SV* cb = NULL;
+
+    switch (eventCode) {
+        case NSStreamEventHasSpaceAvailable:
+            cb = wcb;
+            break;
+        case NSStreamEventHasBytesAvailable:
+            cb = rcb;
+            break;
+        default:
+            //NSLog(@"ignore event: %d", eventCode);
+            return;
     }
+
+    if (NULL == cb) return;
+    [self reset_watcher];
 
     // callback
     dSP;
@@ -230,78 +238,90 @@ XS(add_io) {
 
     NSAutoreleasePool* pool = [[NSAutoreleasePool alloc] init];
 
-    NSInputStream* read_stream = nil;
-    NSOutputStream* write_stream = nil;
-
-    CFStreamCreatePairWithSocket(kCFAllocatorDefault, fd, mode == 0 ? &read_stream : NULL, mode == 1 ? &write_stream : NULL);
-    if ((mode == 0 && read_stream) || (mode == 1 && write_stream)) {
-        Cocoa__EventLoop__IOWatcher* io = [[Cocoa__EventLoop__IOWatcher alloc] init];
-        io->fd = fd;
-        io->mode = mode;
-        io->read_stream = [read_stream retain];
-        io->write_stream = [write_stream retain];
-        io->cb = SvREFCNT_inc(sv_cb);
-
-        if (0 == mode) {
-            [io->read_stream setDelegate:io];
-            [io->read_stream scheduleInRunLoop:[NSRunLoop currentRunLoop]
-                                       forMode:NSDefaultRunLoopMode];
-            [io->read_stream open];
+    MAGIC* m = mg_find(SvRV(sv_obj), PERL_MAGIC_ext);
+    if (m) {
+        Cocoa__EventLoop__IOWatcher* io = (Cocoa__EventLoop__IOWatcher*)m->mg_obj;
+        if (mode == 0) { // read
+            if (io->rcb) SvREFCNT_dec(io->rcb);
+            io->rcb = SvREFCNT_inc(sv_cb);
         }
         else {
-            [io->write_stream setDelegate:io];
-            [io->write_stream scheduleInRunLoop:[NSRunLoop currentRunLoop]
-                                        forMode:NSDefaultRunLoopMode];
-            [io->write_stream open];
+            if (io->wcb) SvREFCNT_dec(io->wcb);
+            io->wcb = SvREFCNT_inc(sv_cb);
         }
+        [io reset_watcher];
+    }
+    else {
+        Cocoa__EventLoop__IOWatcher* io = [[Cocoa__EventLoop__IOWatcher alloc] init];
+        io->fd = fd;
+        if (mode == 0) { // read
+            io->rcb = SvREFCNT_inc(sv_cb);
+            io->wcb = NULL;
+        }
+        else {
+            io->rcb = NULL;
+            io->wcb = SvREFCNT_inc(sv_cb);
+        }
+        [io setup_watcher];
 
         sv_magic(SvRV(sv_obj), NULL, PERL_MAGIC_ext, NULL, 0);
         mg_find(SvRV(sv_obj), PERL_MAGIC_ext)->mg_obj = (void*)io;
     }
-    else {
-        NSLog(@"open socket failed");
-    }
 
     [pool drain];
 
-    XSRETURN(0);
+    ST(0) = sv_obj;
+    XSRETURN(1);
 }
 
 XS(remove_io) {
     dXSARGS;
 
-    if (items < 1) {
-        Perl_croak(aTHX_ "Usage: remove_io($obj)");
+    if (items < 2) {
+        Perl_croak(aTHX_ "Usage: remove_io($obj, $mode)");
     }
 
     NSAutoreleasePool* pool = [[NSAutoreleasePool alloc] init];
 
     SV* sv_obj = ST(0);
+    SV* sv_mode = ST(1);
+
+    int mode = SvIV(sv_mode);
+    int flag = 0;
+
     MAGIC* m = mg_find(SvRV(sv_obj), PERL_MAGIC_ext);
     if (m) {
         Cocoa__EventLoop__IOWatcher* io = (Cocoa__EventLoop__IOWatcher*)m->mg_obj;
 
-        if (0 == io->mode) {    // read
+        if (0 == mode && NULL != io->rcb) { // read
+            SvREFCNT_dec(io->rcb);
+            io->rcb = NULL;
+        }
+        if (1 == mode && NULL != io->wcb) {
+            SvREFCNT_dec(io->wcb);
+            io->wcb = NULL;
+        }
+
+        if (NULL == io->rcb && NULL == io->wcb) {
+            flag = io->fd;
+
             [io->read_stream close];
             [io->read_stream removeFromRunLoop:[NSRunLoop currentRunLoop]
                                        forMode:NSDefaultRunLoopMode];
-
-        }
-        else {
             [io->write_stream close];
             [io->write_stream removeFromRunLoop:[NSRunLoop currentRunLoop]
-                                       forMode:NSDefaultRunLoopMode];
+                                        forMode:NSDefaultRunLoopMode];
+            [io->read_stream release];
+            [io->write_stream release];
+            [io release];
         }
-
-        [io->read_stream release];
-        [io->write_stream release];
-        SvREFCNT_dec(io->cb);
-        [io release];
     }
 
     [pool release];
 
-    XSRETURN(0);
+    SV* ret = sv_2mortal(newSViv(flag));
+    ST(0) = ret;
+    XSRETURN(1);
 }
 
 XS(boot_Cocoa__EventLoop) {
