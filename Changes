@@ -1,5 +1,8 @@
 Revision history for Perl extension Cocoa::EventLoop
 
+0.04  2010-12-31T08:57:33+09:00
+      - more optimizations
+
 0.03  2010-12-31T00:18:11+09:00
       - added io watcher caching to fix troubles when there's multiple watcher to same fds.
 
