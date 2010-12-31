@@ -65,8 +65,8 @@
 
     CFStreamCreatePairWithSocket(
         kCFAllocatorDefault, fd,
-        NULL != rcb ? &read_stream : NULL,
-        NULL != wcb ? &write_stream : NULL
+        (CFReadStreamRef*)(NULL != rcb ? &read_stream : NULL),
+        (CFWriteStreamRef*)(NULL != wcb ? &write_stream : NULL)
     );
 
     if (NULL != rcb) {
